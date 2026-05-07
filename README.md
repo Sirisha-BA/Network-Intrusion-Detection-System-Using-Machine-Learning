@@ -62,7 +62,7 @@ The project implements and compares multiple Machine Learning algorithms:
 | Random Forest | Primary intrusion detection model |
 | Support Vector Machine (SVM) | Attack classification |
 | Artificial Neural Network (ANN) | Deep learning-based detection |
-| XGBoost *(Optional)* | Advanced ensemble boosting |
+| XGBoost | Advanced ensemble boosting |
 
 # 📊 Performance Evaluation Metrics
 
