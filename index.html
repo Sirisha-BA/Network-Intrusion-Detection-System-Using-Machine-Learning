@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIDS — Network Intrusion Detection System</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Scan lines overlay -->
+  <div class="scanlines"></div>
+  <div class="grid-bg"></div>
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">NIDS<span class="logo-sub">v2.4</span></span>
+      </div>
+      <div class="status-indicator" id="wsStatus">
+        <span class="dot" id="wsDot"></span>
+        <span id="wsLabel">CONNECTING</span>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <div class="clock-block">
+        <div class="clock-label">SYSTEM TIME</div>
+        <div class="clock" id="clock">--:--:--</div>
+      </div>
+      <div class="model-badge" id="modelBadge">MODEL: RANDOM FOREST</div>
+    </div>
+    <div class="topbar-right">
+      <div class="threat-level" id="threatLevel">
+        <span class="tl-label">THREAT LEVEL</span>
+        <span class="tl-value" id="tlValue">NORMAL</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════ LAYOUT ═══════════════════ -->
+  <div class="layout">
+
+    <!-- ──────────── SIDEBAR ──────────── -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-view="dashboard" onclick="switchView('dashboard',this)">
+          <span class="nav-icon">◈</span> Dashboard
+        </a>
+        <a class="nav-item" data-view="logs" onclick="switchView('logs',this)">
+          <span class="nav-icon">≡</span> View Logs
+        </a>
+      </nav>
+
+      <div class="sidebar-section">
+        <div class="section-title">MONITORING</div>
+        <button class="btn btn-start" id="btnStart" onclick="startMonitoring()">▶ START MONITORING</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopMonitoring()" disabled>■ STOP</button>
+        <button class="btn btn-reset" onclick="resetSystem()">↺ RESET</button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">UPLOAD DATASET</div>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">⬆</div>
+          <div class="upload-text">Click or drop CSV</div>
+          <input type="file" id="fileInput" accept=".csv" style="display:none" onchange="uploadDataset(this)" />
+        </div>
+        <div class="upload-status" id="uploadStatus"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">SELECT MODEL</div>
+        <div class="model-list">
+          <label class="model-opt active" id="m-rf">
+            <input type="radio" name="model" value="random_forest" checked onchange="selectModel(this)"/>
+            <span class="model-name">Random Forest</span>
+            <span class="model-acc">97.8%</span>
+          </label>
+          <label class="model-opt" id="m-xgb">
+            <input type="radio" name="model" value="xgboost" onchange="selectModel(this)"/>
+            <span class="model-name">XGBoost</span>
+            <span class="model-acc">98.1%</span>
+          </label>
+          <label class="model-opt" id="m-cnn">
+            <input type="radio" name="model" value="cnn">
+            <input type="radio" name="model" value="cnn" onchange="selectModel(this)"/>
+            <span class="model-name">CNN</span>
+            <span class="model-acc">96.4%</span>
+          </label>
+          <label class="model-opt" id="m-lstm">
+            <input type="radio" name="model" value="lstm" onchange="selectModel(this)"/>
+            <span class="model-name">LSTM</span>
+            <span class="model-acc">97.2%</span>
+          </label>
+          <label class="model-opt" id="m-svm">
+            <input type="radio" name="model" value="svm" onchange="selectModel(this)"/>
+            <span class="model-name">SVM</span>
+            <span class="model-acc">95.6%</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="footer-stat">WS: <span id="wsPort">3000</span></div>
+        <div class="footer-stat">BUILD: 2025.05</div>
+      </div>
+    </aside>
+
+    <!-- ──────────── MAIN CONTENT ──────────── -->
+    <main class="main">
+
+      <!-- === DASHBOARD VIEW === -->
+      <div id="view-dashboard" class="view active">
+
+        <!-- STAT CARDS -->
+        <section class="stat-cards">
+          <div class="stat-card card-packets">
+            <div class="card-glow"></div>
+            <div class="card-icon">◎</div>
+            <div class="card-body">
+              <div class="card-value" id="statPackets">0</div>
+              <div class="card-label">PACKETS ANALYZED</div>
+            </div>
+            <div class="card-trend up" id="trendPackets">+0/s</div>
+          </div>
+          <div class="stat-card card-attacks">
+            <div class="card-glow"></div>
+            <div class="card-icon">⚠</div>
+            <div class="card-body">
+              <div class="card-value" id="statAttacks">0</div>
+              <div class="card-label">ATTACKS DETECTED</div>
+            </div>
+            <div class="card-trend up" id="trendAttacks">0%</div>
+          </div>
+          <div class="stat-card card-benign">
+            <div class="card-glow"></div>
+            <div class="card-icon">✓</div>
+            <div class="card-body">
+              <div class="card-value" id="statBenign">0</div>
+              <div class="card-label">BENIGN TRAFFIC</div>
+            </div>
+            <div class="card-trend" id="trendBenign">0%</div>
+          </div>
+          <div class="stat-card card-alerts">
+            <div class="card-glow"></div>
+            <div class="card-icon">🔔</div>
+            <div class="card-body">
+              <div class="card-value" id="statAlerts">0</div>
+              <div class="card-label">ACTIVE ALERTS</div>
+            </div>
+            <div class="card-trend" id="trendAlerts">—</div>
+          </div>
+        </section>
+
+        <!-- CHARTS ROW -->
+        <section class="charts-row">
+          <div class="chart-panel" id="panelDist">
+            <div class="panel-header">
+              <span class="panel-title">◈ ATTACK DISTRIBUTION</span>
+              <div class="panel-controls">
+                <button class="chart-toggle active" onclick="setChartType('bar',this)" data-type="bar">BAR</button>
+                <button class="chart-toggle" onclick="setChartType('doughnut',this)" data-type="doughnut">PIE</button>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chartDist"></canvas>
+            </div>
+          </div>
+          <div class="chart-panel" id="panelMatrix">
+            <div class="panel-header">
+              <span class="panel-title">◈ CONFUSION MATRIX</span>
+              <div class="panel-controls">
+                <button class="chart-toggle active" onclick="toggleAccGraph(false,this)">MATRIX</button>
+                <button class="chart-toggle" onclick="toggleAccGraph(true,this)">ACCURACY</button>
+              </div>
+            </div>
+            <div id="matrixView">
+              <div class="matrix-grid">
+                <div class="matrix-label-row">
+                  <div></div>
+                  <div class="ml-header">Predicted<br/>Positive</div>
+                  <div class="ml-header">Predicted<br/>Negative</div>
+                </div>
+                <div class="matrix-row">
+                  <div class="ml-side">Actual<br/>Positive</div>
+                  <div class="matrix-cell tp" id="mTP"><span class="cell-val" id="valTP">0</span><span class="cell-lbl">TP</span></div>
+                  <div class="matrix-cell fn" id="mFN"><span class="cell-val" id="valFN">0</span><span class="cell-lbl">FN</span></div>
+                </div>
+                <div class="matrix-row">
+                  <div class="ml-side">Actual<br/>Negative</div>
+                  <div class="matrix-cell fp" id="mFP"><span class="cell-val" id="valFP">0</span><span class="cell-lbl">FP</span></div>
+                  <div class="matrix-cell tn" id="mTN"><span class="cell-val" id="valTN">0</span><span class="cell-lbl">TN</span></div>
+                </div>
+              </div>
+              <div class="accuracy-bar-wrap">
+                <div class="acc-label">ACCURACY: <span id="accVal">0.00</span>%</div>
+                <div class="acc-bar"><div class="acc-fill" id="accFill" style="width:0%"></div></div>
+                <div class="metrics-row">
+                  <div class="metric-pill"><span>PRECISION</span><strong id="mPrecision">—</strong></div>
+                  <div class="metric-pill"><span>RECALL</span><strong id="mRecall">—</strong></div>
+                  <div class="metric-pill"><span>F1</span><strong id="mF1">—</strong></div>
+                </div>
+              </div>
+            </div>
+            <div id="accChartView" style="display:none;height:220px;">
+              <canvas id="chartAcc"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- DETECTION TABLE -->
+        <section class="table-panel">
+          <div class="panel-header">
+            <span class="panel-title">◈ REAL-TIME DETECTION TABLE</span>
+            <div class="panel-controls">
+              <input class="filter-input" id="filterInput" placeholder="Filter by IP / Type..." oninput="filterTable()" />
+              <span class="table-count" id="tableCount">0 records</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="det-table">
+              <thead>
+                <tr>
+                  <th>TIMESTAMP</th>
+                  <th>SRC IP</th>
+                  <th>DST IP</th>
+                  <th>PROTOCOL</th>
+                  <th>LENGTH</th>
+                  <th>CLASSIFICATION</th>
+                  <th>CONFIDENCE</th>
+                  <th>SEVERITY</th>
+                </tr>
+              </thead>
+              <tbody id="detTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ALERTS -->
+        <section class="alerts-panel">
+          <div class="panel-header">
+            <span class="panel-title">⚠ ALERT FEED</span>
+            <button class="btn-sm" onclick="clearAlerts()">CLEAR</button>
+          </div>
+          <div class="alerts-list" id="alertsList">
+            <div class="alert-empty">No alerts — system normal</div>
+          </div>
+        </section>
+
+      </div><!-- /view-dashboard -->
+
+      <!-- === LOGS VIEW === -->
+      <div id="view-logs" class="view">
+        <section class="logs-panel full">
+          <div class="panel-header">
+            <span class="panel-title">≡ SYSTEM LOGS</span>
+            <div class="panel-controls">
+              <select class="filter-select" id="logLevelFilter" onchange="filterLogs()">
+                <option value="ALL">ALL LEVELS</option>
+                <option value="INFO">INFO</option>
+                <option value="ALERT">ALERT</option>
+                <option value="WARN">WARN</option>
+                <option value="ERROR">ERROR</option>
+              </select>
+              <button class="btn-sm" onclick="clearLogs()">CLEAR LOGS</button>
+              <button class="btn-sm" onclick="exportLogs()">EXPORT</button>
+            </div>
+          </div>
+          <div class="logs-container" id="logsContainer"></div>
+        </section>
+      </div>
+
+    </main>
+  </div><!-- /layout -->
+
+  <script src="js/app.js"></script>
+</body>
+</html>
